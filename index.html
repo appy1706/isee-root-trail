@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rootwork: ISEE vocabulary from roots, prefixes and suffixes</title>
+  <meta name="description" content="Flashcards and pop quizzes that build ISEE upper level vocabulary from word roots, prefixes and suffixes.">
+  <meta name="theme-color" content="#2d3fe0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>Rootwork</h1>
+        <p class="tagline">Learn the pieces. Unlock the words.</p>
+      </div>
+      <p class="tally" id="tally" aria-live="polite"></p>
+    </header>
+
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" data-view="study">Study</button>
+      <button type="button" data-view="quiz">Quiz</button>
+      <button type="button" data-view="browse">Browse</button>
+    </nav>
+
+    <main id="view"></main>
+
+    <footer class="foot">
+      <p>Your progress is saved in this browser only.</p>
+      <button type="button" class="link" id="reset">Reset progress</button>
+    </footer>
+  </div>
+
+  <dialog id="pop" aria-labelledby="pop-title"></dialog>
+
+  <noscript><p class="wrap">Rootwork needs JavaScript to run.</p></noscript>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
