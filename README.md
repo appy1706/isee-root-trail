@@ -6,15 +6,41 @@ Every card shows a word part, then the real words it builds. Each example word i
 
 ## What's inside
 
-- **Study**: flip through cards, mark each one *Got it* or *Still learning*. A **pop quiz** interrupts every 3, 5 or 8 cards (your choice) with a question about something you just saw.
-- **Quiz**: 10, 20 or 30 questions on everything, only roots, prefixes, suffixes, or just the cards you are still learning. Misses go into your *Still learning* deck automatically.
-- **Browse**: search every card by part, meaning or word.
+- **Plan**: a day-by-day schedule for **Oct 22 to Nov 30, 2026** (40 days, adjustable). See below.
+- **Study**: free practice. Flip through cards, mark each one *Got it* or *Still learning*. A **pop quiz** interrupts every 3, 5 or 8 cards (your choice) with a question about something you just saw.
+- **Quiz**: 10, 20 or 30 questions on the textbook table, everything, only roots, prefixes or suffixes, or just the cards you are still learning. Misses go into your *Still learning* deck automatically.
+- **Browse**: search every card by part, meaning or word, or show just the textbook table.
 
 Question types: what a word part means, which part means something, what a word means, fill in the sentence blank, and "which word has a root meaning ...?" Every answer shows how the word is built.
 
-76 word parts (43 roots, 23 prefixes, 10 suffixes) and 245 example words to start.
+**108 word parts** (67 roots, 31 prefixes, 10 suffixes) and **451 example words**:
+
+- **All 69 rows and all 206 example words** from the textbook's *Master Root & Prefix Study Table* (the **Textbook table** deck). Each of those words is tagged **In your table**.
+- **Extra practice words** written for this project, tagged **Extra practice**, so every part is seen in 5 or 6 real words, not just three.
+- **39 bonus word parts** that are not in the table (such as *fract*, *jud*, *nov*, *-logy*, *-ous*), available in the **Everything** deck.
+
+Two typos in the source table were corrected: "inaugururate" is now *inaugurate*, and the placeholder "clude" is now *include*.
 
 Progress is saved in the browser with `localStorage`. There is no server, account or tracking.
+
+## The study plan
+
+The **Plan** tab spreads the 69 table parts over 40 days, following the table's five sections.
+
+| Days | What happens |
+| --- | --- |
+| Learn days | 2-3 new parts a day. Three tasks: flip the new cards, a 10-question quick quiz (today's parts plus older ones due for review), and 5 fill-in-the-blank sentences. About 15 minutes. |
+| Checkpoint days | The last learn day of each section adds a 20-question checkpoint. Scoring 80% or more marks the section mastered. |
+| Review days | Every 7th day (days 7, 14, 21, 28, 35) has no new parts. Re-read the tricky cards, then take a 20-question cumulative quiz. |
+| Final review | The last 5 days (Nov 26-30): sections 1-2, sections 3-5, weak spots, a full 30-question quiz, then a light last day. |
+
+Older parts come back for review 1, 3, 7 and 14 days after they were learned. Cards marked *Still learning* and quiz misses are asked about more often.
+
+The calendar shows what is done, what is a review or final day, and what was missed (dashed). Missed days never block anything; the Plan screen just points them out so you can catch up. Use **Change plan dates** at the bottom of the Plan tab to move the schedule. Progress stays with day numbers.
+
+## Keep this edition private
+
+This edition includes example words taken from a published textbook. Keep the GitHub repository **private**, or share it only with your own family or class. If you want a public version, ask for a build that uses only the original practice words, or delete the table words and the trailing `1` flags in `data.js` first.
 
 ## Publish on GitHub Pages
 
@@ -45,9 +71,10 @@ All content lives in `data.js`. Copy an existing entry and edit it:
 | `k` | `"root"`, `"prefix"` or `"suffix"` |
 | `m` | meaning |
 | `o` | language of origin |
-| `w` | example words: `[word, highlighted piece, building-block gloss, definition, example sentence]` |
+| `t` | optional: `1` if the part is in the textbook table |
+| `w` | example words: `[word, highlighted piece, building-block gloss, definition, example sentence]`, with an optional trailing `1` for words in the textbook table |
 
-Rules: the highlighted piece must appear in the word (at the start for prefixes, at the end for suffixes), the word must appear spelled exactly in its sentence, and each word can be used only once. Check your edits with:
+Rules: the highlighted piece must appear in the word (at the end for suffixes), and the word must appear spelled exactly in its sentence. A word can appear under two parts (like *philosopher* under **phil** and **soph**), but then its gloss, definition and sentence must match. Check your edits with:
 
 ```
 node tools/check-data.js
@@ -57,7 +84,7 @@ Tip: give word parts with the same meaning different meaning text only when they
 
 ## About the content
 
-The word parts, glosses, definitions and sentences here were written fresh for this project. They are not copied from any test-prep book. If you add cards from a book you own, keep that for your own private copy rather than a public repository, since a publisher's tables and examples are protected by copyright.
+The table words are from the textbook table you provided. Everything else, including every gloss, definition and example sentence for all words, and every extra practice word, was written for this project.
 
 ## Files
 

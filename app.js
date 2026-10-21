@@ -4,7 +4,25 @@
   const DATA = window.ROOTWORK_DATA || [];
   const BY_ID = Object.fromEntries(DATA.map((e) => [e.id, e]));
   const KIND_TITLE = { root: 'Root', prefix: 'Prefix', suffix: 'Suffix' };
+  // The table's five sections, in table order.
+  const SECTIONS = [
+    { name: 'Prefixes and negation', n: 19 },
+    { name: 'Action, movement and space', n: 15 },
+    { name: 'Mind, emotion and senses', n: 12 },
+    { name: 'Time, measure and quantity', n: 11 },
+    { name: 'Structure and description', n: 12 },
+  ];
+  const TABLE = DATA.filter((e) => e.t);
+  const SEC_IDS = (() => {
+    const total = SECTIONS.reduce((a, b) => a + b.n, 0);
+    if (TABLE.length !== total) return [TABLE.map((e) => e.id)];
+    let at = 0;
+    return SECTIONS.map(({ n }) => { const ids = TABLE.slice(at, at + n).map((e) => e.id); at += n; return ids; });
+  })();
+  const PLAN_DEFAULT = { start: '2026-10-22', end: '2026-11-30' };
+
   const DECKS = [
+    ['table', 'Textbook table'],
     ['all', 'Everything'],
     ['root', 'Roots'],
     ['prefix', 'Prefixes'],
@@ -61,21 +79,27 @@
 
   /* ───────── state ───────── */
   const state = {
-    view: 'study',
+    view: 'plan',
     status: store.get('status', {}), // id -> 'known' | 'learning'
-    settings: Object.assign({ deck: 'all', pop: 5, shuffle: true }, store.get('settings', {})),
+    plan: Object.assign({}, PLAN_DEFAULT, store.get('planDates', {})),
+    progress: store.get('planProgress', { done: {}, scores: {} }),
+    planDay: null,
+    session: null,
+    settings: Object.assign({ deck: 'table', pop: 5, shuffle: true }, store.get('settings', {})),
     study: null,
-    quiz: { phase: 'setup', scope: 'all', n: 10 },
+    quiz: { phase: 'setup', scope: 'table', n: 10 },
     activeQ: null,
   };
   const saveStatus = () => store.set('status', state.status);
   const saveSettings = () => store.set('settings', state.settings);
-  const knownCount = () => DATA.filter((e) => state.status[e.id] === 'known').length;
-  const updateTally = () => { $('#tally').textContent = `${knownCount()} of ${DATA.length} known`; };
+  const saveProgress = () => store.set('planProgress', state.progress);
+  const knownCount = () => TABLE.filter((e) => state.status[e.id] === 'known').length;
+  const updateTally = () => { $('#tally').textContent = `${knownCount()} of ${TABLE.length} table parts known`; };
 
   function deckIds(filter) {
     return DATA.filter((e) => {
       if (filter === 'all') return true;
+      if (filter === 'table') return !!e.t;
       if (filter === 'learning') return state.status[e.id] === 'learning';
       return e.k === filter;
     }).map((e) => e.id);
@@ -97,13 +121,15 @@
   }
 
   function wordRow(e, w, focus) {
-    const [word, piece, gloss, def, ex] = w;
+    const [word, piece, gloss, def, ex, fromTable] = w;
     const [a, b, c] = splitWord(word, piece, e.k);
     return h('li', { class: 'word' + (focus ? ' focus' : '') },
-      h('div', { class: 'tiles', role: 'img', 'aria-label': word },
-        a && h('span', { class: 'tile' }, a),
-        h('span', { class: 'tile hit' }, b || word),
-        c && h('span', { class: 'tile' }, c)),
+      h('div', { class: 'word-top' },
+        h('div', { class: 'tiles', role: 'img', 'aria-label': word },
+          a && h('span', { class: 'tile' }, a),
+          h('span', { class: 'tile hit' }, b || word),
+          c && h('span', { class: 'tile' }, c)),
+        e.t && (fromTable ? h('span', { class: 'chip' }, 'In your table') : h('span', { class: 'chip extra' }, 'Extra practice'))),
       h('p', { class: 'gloss' }, gloss),
       h('p', { class: 'def' }, def),
       h('p', { class: 'ex' }, highlightWord(ex, word)));
@@ -126,7 +152,7 @@
     return false;
   }
 
-  const ALL_WORDS = DATA.flatMap((e) => e.w.map((w, i) => ({ e, i, word: w[0], def: w[3] })));
+  const ALL_WORDS = DATA.flatMap((e) => e.w.map((w, i) => ({ e, i, word: w[0], gloss: w[2], def: w[3] })));
 
   const uniq = (list, ...exclude) => {
     const seen = new Set(exclude);
@@ -185,7 +211,7 @@
 
   function qWhichWord(e) {
     const i = rnd(e.w.length);
-    const pool = ALL_WORDS.filter((x) => x.e.id !== e.id && !overlap(x.e.m, e.m) && !usesPiece(x.word, e)).map((x) => x.word);
+    const pool = ALL_WORDS.filter((x) => x.e.id !== e.id && !overlap(x.e.m, e.m) && !overlap(x.gloss, e.m) && !usesPiece(x.word, e)).map((x) => x.word);
     const wrong = sample(uniq(pool, e.w[i][0]), 3);
     if (wrong.length < 3) return null;
     const lead = { root: 'Which word has a root meaning ', prefix: 'Which word starts with a prefix meaning ', suffix: 'Which word ends with a suffix meaning ' }[e.k];
@@ -282,7 +308,7 @@
   function renderStudy(main) {
     if (!state.study) startStudy(state.settings.deck);
     const s = state.study;
-    main.append(studyToolbar());
+    if (!s.plan) main.append(studyToolbar());
 
     if (s.empty) {
       main.append(h('div', { class: 'panel' },
@@ -291,6 +317,14 @@
           ? 'Cards you mark “Still learning”, or miss in a quiz, will collect in this deck.'
           : 'This deck has no cards.'),
         h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary', onclick: () => { startStudy('all'); render(); } }, 'Study everything'))));
+      return;
+    }
+
+    if (s.i >= s.deck.length && s.plan) {
+      main.append(h('div', { class: 'panel' },
+        h('h2', {}, 'Cards done'),
+        h('p', {}, `You marked ${s.got} as known and ${s.again} as still learning. Anything marked still learning will come back in your reviews.`),
+        h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary grow', onclick: exitSession }, 'Back to plan'))));
       return;
     }
 
@@ -353,7 +387,8 @@
       s.recent.push(e.id);
       s.i++;
       s.flipped = false;
-      const n = state.settings.pop;
+      if (s.plan && s.i >= s.deck.length) markDone(s.plan.day, s.plan.task);
+      const n = s.plan ? 0 : state.settings.pop;
       if (n > 0 && s.counter % n === 0) openPop(s.recent.slice(-n)); else render();
     }
     state.studyKeys = { flip, rate, isFlipped: () => s.flipped };
@@ -406,6 +441,24 @@
       return;
     }
 
+    if (z.phase === 'done' && z.plan) {
+      const pct = Math.round((z.score / z.qs.length) * 100);
+      const cp = z.plan.checkpoint;
+      const msg = cp != null
+        ? (pct >= 80 ? `Section mastered: ${SECTIONS[cp] ? SECTIONS[cp].name : 'this section'}.` : 'Not mastered yet. The misses are now in Still learning, and you can retake this checkpoint from the plan.')
+        : (pct >= 80 ? 'Strong work.' : 'The misses are now in Still learning and will come back in your reviews.');
+      main.append(h('div', { class: 'panel' },
+        h('h2', {}, 'Done'),
+        h('p', { class: 'score' }, `${z.score} / ${z.qs.length}`),
+        h('p', {}, msg),
+        z.missed.length > 0 && h('ul', { class: 'missed' }, z.missed.map((id) => {
+          const e = BY_ID[id];
+          return h('li', {}, h('strong', {}, e.f), ` means “${e.m}”. Words: ${e.w.map((w) => w[0]).join(', ')}.`);
+        })),
+        h('div', { class: 'actions' }, h('button', { type: 'button', class: 'btn primary grow', onclick: exitSession }, 'Back to plan'))));
+      return;
+    }
+
     if (z.phase === 'done') {
       const pct = Math.round((z.score / z.qs.length) * 100);
       const msg = pct >= 90 ? 'Excellent. These words are yours.' : pct >= 70 ? 'Solid. Review the misses and go again.' : 'Good start. The misses are now in your Still learning deck.';
@@ -431,7 +484,10 @@
       h('span', {}, `${z.score} right`)));
     const next = h('button', { type: 'button', class: 'btn primary', hidden: true, onclick: () => {
       z.i++;
-      if (z.i >= z.qs.length) z.phase = 'done';
+      if (z.i >= z.qs.length) {
+        z.phase = 'done';
+        if (z.plan) finishPlanQuiz(z);
+      }
       render();
     } }, z.i === z.qs.length - 1 ? 'See results' : 'Next question');
     const qv = questionView(q, (ok) => {
@@ -446,6 +502,7 @@
 
   function startQuiz() {
     const z = state.quiz;
+    delete z.plan;
     const ids = shuffle(deckIds(z.scope));
     const qs = [];
     for (let k = 0; qs.length < z.n && k < z.n * 3; k++) {
@@ -462,7 +519,7 @@
     const list = h('div', { class: 'list' });
     function fill() {
       const q = browse.q.trim().toLowerCase();
-      const hits = DATA.filter((e) => (browse.kind === 'all' || e.k === browse.kind) &&
+      const hits = DATA.filter((e) => (browse.kind === 'all' || (browse.kind === 'table' ? e.t : e.k === browse.kind)) &&
         (!q || e.f.toLowerCase().includes(q) || e.m.toLowerCase().includes(q) || e.w.some((w) => w[0].includes(q) || w[3].toLowerCase().includes(q))));
       list.replaceChildren(...(hits.length ? hits.map((e) => {
         const st = state.status[e.id];
@@ -475,13 +532,310 @@
     }
     const search = h('input', { type: 'search', id: 'q', value: browse.q, placeholder: 'e.g. bene, water, benevolent', oninput: (ev) => { browse.q = ev.target.value; fill(); } });
     const kind = h('select', { id: 'kind', onchange: (ev) => { browse.kind = ev.target.value; fill(); } },
-      [['all', 'All'], ['root', 'Roots'], ['prefix', 'Prefixes'], ['suffix', 'Suffixes']].map(([v, l]) => h('option', { value: v, selected: v === browse.kind }, l)));
+      [['all', 'All'], ['table', 'Textbook table'], ['root', 'Roots'], ['prefix', 'Prefixes'], ['suffix', 'Suffixes']].map(([v, l]) => h('option', { value: v, selected: v === browse.kind }, l)));
     main.append(h('div', { class: 'toolbar' }, h('label', { class: 'field' }, 'Search', search), h('label', { class: 'field' }, 'Show', kind)), list);
     fill();
   }
 
+
+  /* ───────── study plan ───────── */
+  const fmtDate = (d, long) => d.toLocaleDateString('en-US', long ? { weekday: 'long', month: 'long', day: 'numeric' } : { weekday: 'short', month: 'short', day: 'numeric' });
+  const parseDate = (str) => { const [y, m, d] = str.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+  const dayDiff = (a, b) => Math.round((b - a) / 86400000);
+  const taskKey = (day, task) => `${day}:${task}`;
+  const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  function markDone(day, task, score) {
+    state.progress.done[taskKey(day, task)] = true;
+    if (score != null) state.progress.scores[taskKey(day, task)] = score;
+    saveProgress();
+  }
+
+  function allocateDays(counts, days) {
+    if (days < counts.length) return null;
+    const total = counts.reduce((a, b) => a + b, 0);
+    const raw = counts.map((c) => (c * days) / total);
+    const out = raw.map((r) => Math.max(1, Math.floor(r)));
+    const order = raw.map((r, i) => [r - Math.floor(r), i]).sort((a, b) => b[0] - a[0]);
+    let used = out.reduce((a, b) => a + b, 0);
+    for (let k = 0; used < days; k++, used++) out[order[k % order.length][1]]++;
+    while (used > days) {
+      const j = out.indexOf(Math.max(...out));
+      if (out[j] <= 1) break;
+      out[j]--; used--;
+    }
+    return out;
+  }
+
+  function chunk(ids, days) {
+    const out = [];
+    let at = 0;
+    for (let d = 0; d < days; d++) {
+      const size = Math.ceil((ids.length - at) / (days - d));
+      out.push(ids.slice(at, at + size));
+      at += size;
+    }
+    return out;
+  }
+
+  // Builds the day-by-day schedule from the plan dates.
+  function buildPlan() {
+    const start = parseDate(state.plan.start);
+    const end = parseDate(state.plan.end);
+    const total = Math.max(1, dayDiff(start, end) + 1);
+    const finalN = total >= 21 ? 5 : total >= 10 ? 2 : 1;
+    const days = [];
+    for (let i = 1; i <= total; i++) {
+      const type = i > total - finalN ? 'final' : i % 7 === 0 ? 'review' : 'learn';
+      days.push({ i, date: addDays(start, i - 1), type, newIds: [], sec: -1, cp: -1, fin: type === 'final' ? 5 - finalN + (i - (total - finalN) - 1) : -1 });
+    }
+    const learn = days.filter((d) => d.type === 'learn');
+    const alloc = allocateDays(SEC_IDS.map((x) => x.length), learn.length);
+    if (alloc) {
+      let at = 0;
+      SEC_IDS.forEach((ids, s) => {
+        const slots = learn.slice(at, at + alloc[s]);
+        chunk(ids, alloc[s]).forEach((part, k) => {
+          slots[k].newIds = part;
+          slots[k].sec = s;
+          if (k === slots.length - 1) slots[k].cp = s;
+        });
+        at += alloc[s];
+      });
+    } else if (learn.length) {
+      chunk(TABLE.map((e) => e.id), learn.length).forEach((part, k) => { learn[k].newIds = part; });
+    }
+    return days;
+  }
+
+  function todayIndex() {
+    const t = new Date();
+    return dayDiff(parseDate(state.plan.start), new Date(t.getFullYear(), t.getMonth(), t.getDate())) + 1;
+  }
+
+  const weakIds = () => {
+    const l = TABLE.filter((e) => state.status[e.id] === 'learning').map((e) => e.id);
+    return l.length ? l : TABLE.map((e) => e.id);
+  };
+
+  function tasksFor(day, days) {
+    const k = day.i - 1;
+    const before = days.slice(0, k).flatMap((d) => d.newIds);
+    const due = [...new Set([1, 3, 7, 14].flatMap((o) => (k - o >= 0 ? days[k - o].newIds : [])))];
+    const learning = () => before.filter((id) => state.status[id] === 'learning');
+    const secIds = (a, b) => SEC_IDS.slice(a, b).flat();
+    const T = [];
+
+    if (day.type === 'learn') {
+      const review = due.length ? due : before.slice(-9);
+      T.push({ id: 'learn', kind: 'cards', label: 'Learn today’s parts', note: `${day.newIds.length} parts. Flip each card and rate it.`, get: () => day.newIds });
+      T.push({ id: 'quiz', kind: 'quiz', n: 10, label: 'Quick quiz', note: review.length ? '10 questions on today’s parts and older ones due for review.' : '10 questions on today’s parts.', get: () => [...day.newIds, ...day.newIds, ...review] });
+      T.push({ id: 'context', kind: 'quiz', sentence: true, n: 5, label: 'Words in context', note: '5 fill-in-the-blank sentences.', get: () => [...day.newIds, ...review] });
+      if (day.cp >= 0 && SECTIONS.length === SEC_IDS.length) {
+        T.push({ id: 'checkpoint', kind: 'quiz', checkpoint: day.cp, n: 20, label: `Checkpoint: ${SECTIONS[day.cp].name}`, note: '20 questions. Score 80% or more to master this section.', get: () => SEC_IDS[day.cp] });
+      }
+    } else if (day.type === 'review') {
+      T.push({ id: 'cards', kind: 'cards', label: 'Re-read your tricky cards', note: 'Cards marked Still learning, or the latest ones.', get: () => (learning().length ? learning() : before.slice(-12)).slice(0, 15) });
+      T.push({ id: 'quiz', kind: 'quiz', n: 20, label: 'Cumulative review quiz', note: '20 questions on everything so far. Tricky cards come up more often.', get: () => (before.length ? [...before, ...learning()] : TABLE.map((e) => e.id)) });
+    } else {
+      const FINAL = [
+        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 1 and 2', note: '25 questions.', get: () => secIds(0, 2) }],
+        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 3 to 5', note: '25 questions.', get: () => secIds(2, 5) }],
+        () => [
+          { id: 'cards', kind: 'cards', label: 'Study your weak spots', note: 'Cards you are still learning.', get: () => weakIds().slice(0, 20) },
+          { id: 'quiz', kind: 'quiz', n: 20, label: 'Weak-spot quiz', note: '20 questions on the cards that gave you trouble.', get: weakIds },
+        ],
+        () => [{ id: 'quiz', kind: 'quiz', n: 30, label: 'Full table quiz', note: '30 questions across the whole table.', get: () => TABLE.map((e) => e.id) }],
+        () => [
+          { id: 'cards', kind: 'cards', label: 'One last look', note: 'A light pass over the cards you are still learning.', get: () => weakIds().slice(0, 15) },
+          { id: 'quiz', kind: 'quiz', n: 15, label: 'Light review quiz', note: '15 questions. Stay calm.', get: () => TABLE.map((e) => e.id) },
+        ],
+      ];
+      T.push(...FINAL[day.fin]());
+    }
+    return T;
+  }
+
+  const isDone = (day, t) => !!state.progress.done[taskKey(day.i, t.id)] || (t.kind === 'cards' && t.get().length === 0);
+
+  function pickEntries(pool, n) {
+    let out = [];
+    while (out.length < n) out = out.concat(shuffle(pool));
+    out = out.slice(0, n);
+    for (let k = 1; k < out.length; k++) {
+      if (out[k] === out[k - 1]) {
+        const j = out.findIndex((x, idx) => idx > k && x !== out[k] && x !== out[k - 1]);
+        if (j > 0) [out[k], out[j]] = [out[j], out[k]];
+      }
+    }
+    return out;
+  }
+
+  function makeSentenceQuestion(e) {
+    for (const i of shuffle(e.w.map((_, i) => i))) {
+      const q = qSentence(e, i);
+      if (q) return q;
+    }
+    return makeQuestion(e);
+  }
+
+  function startTask(day, task) {
+    const ids = task.get().filter((id) => BY_ID[id]);
+    state.activeQ = null;
+    if (task.kind === 'cards') {
+      if (!ids.length) { markDone(day.i, task.id); render(); return; }
+      state.study = { filter: 'plan', deck: shuffle([...new Set(ids)]), i: 0, flipped: false, counter: 0, recent: [], got: 0, again: 0, plan: { day: day.i, task: task.id } };
+    } else {
+      const make = task.sentence ? makeSentenceQuestion : makeQuestion;
+      const qs = pickEntries(ids, task.n).map((id) => make(BY_ID[id])).filter(Boolean);
+      if (!qs.length) { markDone(day.i, task.id); render(); return; }
+      Object.assign(state.quiz, { phase: 'run', qs, i: 0, score: 0, missed: [], plan: { day: day.i, task: task.id, checkpoint: task.checkpoint } });
+    }
+    state.session = { kind: task.kind, title: task.label };
+    state.view = 'plan';
+    render();
+  }
+
+  function finishPlanQuiz(z) {
+    const pct = Math.round((z.score / z.qs.length) * 100);
+    markDone(z.plan.day, z.plan.task, pct);
+    if (z.plan.checkpoint != null) {
+      const key = 'cp' + z.plan.checkpoint;
+      state.progress.scores[key] = Math.max(state.progress.scores[key] || 0, pct);
+      saveProgress();
+    }
+  }
+
+  function exitSession() {
+    state.session = null;
+    state.study = null;
+    state.activeQ = null;
+    state.quiz.phase = 'setup';
+    delete state.quiz.plan;
+    render();
+  }
+
+  function renderSession(main) {
+    main.append(h('div', { class: 'session-bar' },
+      h('button', { type: 'button', class: 'link', onclick: exitSession }, 'Back to plan'),
+      h('span', { class: 'session-title' }, state.session.title)));
+    if (state.session.kind === 'cards') renderStudy(main); else renderQuiz(main);
+  }
+
+  function dayPanel(d, days, today) {
+    const tasks = tasksFor(d, days);
+    const finished = tasks.every((t) => isDone(d, t));
+    const title = { learn: 'Learn new parts', review: 'Review day', final: 'Final review' }[d.type];
+    const mins = tasks.reduce((a, t) => a + (t.kind === 'cards' ? 4 : Math.ceil(t.n * 0.7)), 0);
+    return h('section', { class: 'panel day' },
+      h('h2', {}, `Day ${d.i}: ${title}`),
+      h('p', { class: 'when' }, `${fmtDate(d.date, true)}${d.i === today ? ' (today)' : ''}. About ${Math.round(mins / 5) * 5 || 5} minutes.`),
+      d.type === 'learn' && d.newIds.length > 0 && h('div', { class: 'new-parts' },
+        h('p', { class: 'ask' }, 'New today'),
+        h('div', { class: 'tiles' }, d.newIds.map((id) => h('span', { class: 'tile hit small' }, BY_ID[id].f)))),
+      h('ol', { class: 'tasks' }, tasks.map((t) => {
+        const done = isDone(d, t);
+        const score = state.progress.scores[taskKey(d.i, t.id)];
+        return h('li', { class: 'task' + (done ? ' done' : '') },
+          h('span', { class: 'mark', 'aria-hidden': 'true' }, done ? '✓' : ''),
+          h('div', { class: 'task-body' },
+            h('p', { class: 'task-title' }, t.label, score != null && h('span', { class: 'task-score' }, ` ${score}%`)),
+            h('p', { class: 'task-note' }, t.note)),
+          h('button', { type: 'button', class: 'btn' + (done ? '' : ' primary'), onclick: () => startTask(d, t) }, done ? 'Redo' : 'Start'));
+      })),
+      finished && h('p', { class: 'verdict ok' }, 'Day complete. Nice work.'));
+  }
+
+  function calendar(days, today, sel) {
+    const lead = days[0].date.getDay();
+    const cells = [];
+    for (let k = 0; k < lead; k++) cells.push(h('span', { class: 'blank', 'aria-hidden': 'true' }));
+    for (const d of days) {
+      const finished = tasksFor(d, days).every((t) => isDone(d, t));
+      const missed = !finished && d.i < today;
+      const month = d.date.toLocaleDateString('en-US', { month: 'short' });
+      const symbol = finished ? '✓' : d.type === 'review' ? '↻' : d.type === 'final' ? '★' : (d.i === 1 || d.date.getDate() === 1) ? month : '';
+      const kind = { learn: 'learn day', review: 'review day', final: 'final review' }[d.type];
+      cells.push(h('button', {
+        type: 'button',
+        class: ['day-cell', d.type, finished && 'done', missed && 'missed', d.i === today && 'today', d.i === sel && 'sel'].filter(Boolean).join(' '),
+        'aria-label': `Day ${d.i}, ${fmtDate(d.date)}, ${kind}${finished ? ', done' : missed ? ', not finished' : ''}`,
+        'aria-pressed': d.i === sel ? 'true' : 'false',
+        onclick: () => { state.planDay = d.i; render(); },
+      }, h('span', { class: 'num' }, String(d.date.getDate())), h('span', { class: 'sym' }, symbol)));
+    }
+    return h('div', {},
+      h('div', { class: 'cal-head', 'aria-hidden': 'true' }, ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((x) => h('span', {}, x))),
+      h('div', { class: 'cal' }, cells),
+      h('p', { class: 'legend' }, '↻ review day. ★ final review. ✓ day complete. Dashed means unfinished.'));
+  }
+
+  function renderPlan(main) {
+    if (state.session) { renderSession(main); return; }
+    const days = buildPlan();
+    const total = days.length;
+    const today = todayIndex();
+    const sel = Math.min(total, Math.max(1, state.planDay || (today < 1 ? 1 : today > total ? total : today)));
+    const finishedDay = (d) => tasksFor(d, days).every((t) => isDone(d, t));
+    const missed = days.filter((d) => d.i < today && !finishedDay(d));
+    const doneDays = days.filter(finishedDay).length;
+    const mastered = SECTIONS.filter((_, s) => (state.progress.scores['cp' + s] || 0) >= 80).length;
+
+    const headline = today < 1 ? `Starts ${fmtDate(days[0].date, true)}` : today > total ? 'Plan finished. Keep reviewing.' : `Day ${today} of ${total}`;
+    main.append(h('section', { class: 'panel' },
+      h('h2', {}, headline),
+      h('p', { class: 'when' }, `${fmtDate(days[0].date)} to ${fmtDate(days[total - 1].date)}. ${TABLE.length} parts, five sections, a checkpoint after each one.`),
+      h('div', { class: 'stats' },
+        h('div', { class: 'stat' }, h('span', { class: 'big-num' }, `${doneDays}/${total}`), h('span', {}, 'days done')),
+        h('div', { class: 'stat' }, h('span', { class: 'big-num' }, `${knownCount()}/${TABLE.length}`), h('span', {}, 'parts known')),
+        h('div', { class: 'stat' }, h('span', { class: 'big-num' }, `${mastered}/${SECTIONS.length}`), h('span', {}, 'sections mastered'))),
+      missed.length > 0 && h('p', { class: 'notice' },
+        `${missed.length} earlier day${missed.length > 1 ? 's' : ''} not finished. Catch up when you can. `,
+        h('button', { type: 'button', class: 'link', onclick: () => { state.planDay = missed[0].i; render(); } }, `Open day ${missed[0].i}`)),
+      (today >= 1 && today <= total && sel !== today) && h('p', {}, h('button', { type: 'button', class: 'link', onclick: () => { state.planDay = today; render(); } }, 'Jump to today'))));
+
+    main.append(dayPanel(days[sel - 1], days, today));
+    main.append(h('section', { class: 'panel' }, h('h2', {}, 'Calendar'), calendar(days, today, sel)));
+
+    main.append(h('section', { class: 'panel' },
+      h('h2', {}, 'Sections'),
+      h('ul', { class: 'secs' }, SECTIONS.map((sec, s) => {
+        const score = state.progress.scores['cp' + s];
+        const first = days.find((d) => d.sec === s);
+        return h('li', {},
+          h('strong', {}, sec.name),
+          h('span', { class: 'm' }, ` ${sec.n} parts${first ? `, starts day ${first.i}` : ''}`),
+          h('span', { class: 'dot ' + (score >= 80 ? 'known' : '') }, score == null ? 'Checkpoint not taken' : score >= 80 ? `Mastered (${score}%)` : `Best ${score}%, aim for 80%`));
+      }))));
+
+    const startIn = h('input', { type: 'date', id: 'plan-start', value: state.plan.start });
+    const endIn = h('input', { type: 'date', id: 'plan-end', value: state.plan.end });
+    const err = h('p', { class: 'verdict no', hidden: true }, '');
+    main.append(h('details', { class: 'plan-settings' },
+      h('summary', {}, 'Change plan dates'),
+      h('div', { class: 'toolbar', style: 'margin-top:.8rem' },
+        h('label', { class: 'field' }, 'First day', startIn),
+        h('label', { class: 'field' }, 'Last day', endIn),
+        h('button', { type: 'button', class: 'btn', onclick: () => {
+          const a = startIn.value, b = endIn.value;
+          const n = a && b ? dayDiff(parseDate(a), parseDate(b)) + 1 : 0;
+          if (n < 7 || n > 120) { err.textContent = 'Pick dates between 7 and 120 days apart.'; err.hidden = false; return; }
+          state.plan = { start: a, end: b };
+          store.set('planDates', state.plan);
+          state.planDay = null;
+          render();
+        } }, 'Save dates')),
+      err,
+      h('p', { class: 'ask' }, 'Progress stays with day numbers, so changing dates moves the schedule but keeps what you have finished.')));
+  }
+
   /* ───────── shell ───────── */
-  function setView(v) { state.view = v; render(); }
+  function setView(v) {
+    if (state.session) { state.session = null; state.study = null; state.quiz.phase = 'setup'; delete state.quiz.plan; }
+    state.view = v;
+    render();
+  }
 
   function render() {
     state.activeQ = null;
@@ -491,16 +845,20 @@
     document.querySelectorAll('.tabs button').forEach((b) => {
       if (b.dataset.view === state.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
-    ({ study: renderStudy, quiz: renderQuiz, browse: renderBrowse }[state.view])(main);
+    ({ plan: renderPlan, study: renderStudy, quiz: renderQuiz, browse: renderBrowse }[state.view])(main);
     updateTally();
   }
 
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
   $('#reset').addEventListener('click', () => {
-    if (!confirm('Clear all “known” and “still learning” marks?')) return;
+    if (!confirm('Clear all “known” and “still learning” marks and all plan progress?')) return;
     state.status = {};
     saveStatus();
+    state.progress = { done: {}, scores: {} };
+    saveProgress();
+    state.planDay = null;
+    state.session = null;
     state.study = null;
     state.quiz.phase = 'setup';
     render();
@@ -515,7 +873,7 @@
       return;
     }
     const k = state.studyKeys;
-    if (state.view === 'study' && k && !$('#pop').open) {
+    if ((state.view === 'study' || (state.session && state.session.kind === 'cards')) && k && !$('#pop').open) {
       if (ev.key === ' ' && tag !== 'button') { ev.preventDefault(); k.flip(); }
       else if (k.isFlipped() && ev.key === '1') k.rate('learning');
       else if (k.isFlipped() && ev.key === '2') k.rate('known');
