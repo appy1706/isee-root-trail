@@ -8,31 +8,34 @@ Every card shows a word part, then the real words it builds. Each example word i
 
 - **Plan**: a day-by-day schedule for **Oct 22 to Nov 30, 2026** (40 days, adjustable). See below.
 - **Study**: free practice. Flip through cards, mark each one *Got it* or *Still learning*. A **pop quiz** interrupts every 3, 5 or 8 cards (your choice) with a question about something you just saw.
-- **Quiz**: 10, 20 or 30 questions on the textbook table, everything, only roots, prefixes or suffixes, or just the cards you are still learning. Misses go into your *Still learning* deck automatically.
-- **Browse**: search every card by part, meaning or word, or show just the textbook table.
+- **Quiz**: 10, 20 or 30 questions on the PDF table, everything, only roots, prefixes or suffixes, or just the cards you are still learning. Misses go into your *Still learning* deck automatically.
+- **Browse**: search every card by part, meaning or word, or show just the PDF table.
 
 Question types: what a word part means, which part means something, what a word means, fill in the sentence blank, and "which word has a root meaning ...?" Every answer shows how the word is built.
 
-**108 word parts** (67 roots, 31 prefixes, 10 suffixes) and **451 example words**:
+**137 word parts** (72 roots, 55 prefixes, 10 suffixes) and **650 example words**:
 
-- **All 69 rows and all 206 example words** from the textbook's *Master Root & Prefix Study Table* (the **Textbook table** deck). Each of those words is tagged **In your table**.
-- **Extra practice words** written for this project, tagged **Extra practice**, so every part is seen in 5 or 6 real words, not just three.
-- **39 bonus word parts** that are not in the table (such as *fract*, *jud*, *nov*, *-logy*, *-ous*), available in the **Everything** deck.
+- **All 70 parts from the Test Innovators PDF "Common Roots and Prefixes to Know"** (the **Roots & prefixes PDF** deck): 36 prefixes, 24 roots and 10 numerical prefixes. Every example word the PDF lists is on its card and tagged **In your table**.
+- **Extra practice words** written for this project, tagged **Extra practice**, so most parts are seen in 4 to 6 real words.
+- **67 bonus word parts** that are not in the PDF (such as *omni*, *contra*, *fract*, *-logy*, *-ous*), available in the **Everything** deck.
 
-Two typos in the source table were corrected: "inaugururate" is now *inaugurate*, and the placeholder "clude" is now *include*.
+Notes on how the PDF was mapped to cards:
 
-Progress is saved in the browser with `localStorage`. There is no server, account or tracking.
+- Where the PDF lists two rows for the same form (**in** = "in, into, towards" and **in/im/ir** = "not, opposite"), the app keeps two cards. The numerical **bi, di, du/deu** row is split into a **bi-** card and a **di- / du- / deu-** card, because *bi* also appears in the prefix table.
+- The PDF's **uni, sol, mono** row is the **uni- / sol-** card, and the separate **mono** prefix row is its own card. **pent, quin** is one card.
+- The PDF writes the example "interr" under **terr**; the app uses the full word *interred* so the piece can be highlighted.
+- Meanings follow the PDF, with a few small additions where the example words need them (for example **mis** is "wrong, bad" because of *misfortune*).
 
 ## The study plan
 
-The **Plan** tab spreads the 69 table parts over 40 days, following the table's five sections.
+The **Plan** tab spreads the 70 table parts over 40 days in six sections that follow the PDF: prefixes A to D (12 parts), prefixes E to M (14), prefixes O to U (10), roots A to L (12), roots L to V (12) and numerical prefixes (10).
 
 | Days | What happens |
 | --- | --- |
 | Learn days | 2-3 new parts a day. Three tasks: flip the new cards, a 10-question quick quiz (today's parts plus older ones due for review), and 5 fill-in-the-blank sentences. About 15 minutes. |
-| Checkpoint days | The last learn day of each section adds a 20-question checkpoint. Scoring 80% or more marks the section mastered. |
+| Checkpoint days | The last learn day of each of the six sections adds a 20-question checkpoint. Scoring 80% or more marks the section mastered. |
 | Review days | Every 7th day (days 7, 14, 21, 28, 35) has no new parts. Re-read the tricky cards, then take a 20-question cumulative quiz. |
-| Final review | The last 5 days (Nov 26-30): sections 1-2, sections 3-5, weak spots, a full 30-question quiz, then a light last day. |
+| Final review | The last 5 days (Nov 26-30): sections 1-3, sections 4-6, weak spots, a full 30-question quiz, then a light last day. |
 
 Older parts come back for review 1, 3, 7 and 14 days after they were learned. Cards marked *Still learning* and quiz misses are asked about more often.
 
@@ -40,7 +43,7 @@ The calendar shows what is done, what is a review or final day, and what was mis
 
 ## Keep this edition private
 
-This edition includes example words taken from a published textbook. Keep the GitHub repository **private**, or share it only with your own family or class. If you want a public version, ask for a build that uses only the original practice words, or delete the table words and the trailing `1` flags in `data.js` first.
+This edition's table parts and example words come from the Test Innovators PDF, which is licensed for one student only. Keep the GitHub repository **private** and do not share the app or its data beyond that student. If you ever want a public version, delete the table words and the trailing `1` flags in `data.js` first.
 
 ## Publish on GitHub Pages
 
@@ -84,7 +87,9 @@ Tip: give word parts with the same meaning different meaning text only when they
 
 ## About the content
 
-The table words are from the textbook table you provided. Everything else, including every gloss, definition and example sentence for all words, and every extra practice word, was written for this project.
+The word parts, meanings and example words in the table come from the PDF you provided. Every gloss, definition and example sentence, and every extra practice word, was written for this project.
+
+The study plan expects exactly 70 table parts in the order and section sizes listed at the top of `app.js` (`SECTIONS`). If you add or remove table parts (`t: 1`), update those numbers too; `node tools/check-data.js` will warn you if the total is wrong.
 
 ## Files
 

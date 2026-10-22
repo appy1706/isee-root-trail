@@ -4,13 +4,14 @@
   const DATA = window.ROOTWORK_DATA || [];
   const BY_ID = Object.fromEntries(DATA.map((e) => [e.id, e]));
   const KIND_TITLE = { root: 'Root', prefix: 'Prefix', suffix: 'Suffix' };
-  // The table's five sections, in table order.
+  // The table's six sections, in table order (12 + 14 + 10 + 12 + 12 + 10 = 70 parts).
   const SECTIONS = [
-    { name: 'Prefixes and negation', n: 19 },
-    { name: 'Action, movement and space', n: 15 },
-    { name: 'Mind, emotion and senses', n: 12 },
-    { name: 'Time, measure and quantity', n: 11 },
-    { name: 'Structure and description', n: 12 },
+    { name: 'Prefixes, A to D', n: 12 },
+    { name: 'Prefixes, E to M', n: 14 },
+    { name: 'Prefixes, O to U', n: 10 },
+    { name: 'Roots, A to L', n: 12 },
+    { name: 'Roots, L to V', n: 12 },
+    { name: 'Numerical prefixes', n: 10 },
   ];
   const TABLE = DATA.filter((e) => e.t);
   const SEC_IDS = (() => {
@@ -22,7 +23,7 @@
   const PLAN_DEFAULT = { start: '2026-10-22', end: '2026-11-30' };
 
   const DECKS = [
-    ['table', 'Textbook table'],
+    ['table', 'Roots & prefixes PDF'],
     ['all', 'Everything'],
     ['root', 'Roots'],
     ['prefix', 'Prefixes'],
@@ -532,7 +533,7 @@
     }
     const search = h('input', { type: 'search', id: 'q', value: browse.q, placeholder: 'e.g. bene, water, benevolent', oninput: (ev) => { browse.q = ev.target.value; fill(); } });
     const kind = h('select', { id: 'kind', onchange: (ev) => { browse.kind = ev.target.value; fill(); } },
-      [['all', 'All'], ['table', 'Textbook table'], ['root', 'Roots'], ['prefix', 'Prefixes'], ['suffix', 'Suffixes']].map(([v, l]) => h('option', { value: v, selected: v === browse.kind }, l)));
+      [['all', 'All'], ['table', 'Roots & prefixes PDF'], ['root', 'Roots'], ['prefix', 'Prefixes'], ['suffix', 'Suffixes']].map(([v, l]) => h('option', { value: v, selected: v === browse.kind }, l)));
     main.append(h('div', { class: 'toolbar' }, h('label', { class: 'field' }, 'Search', search), h('label', { class: 'field' }, 'Show', kind)), list);
     fill();
   }
@@ -640,8 +641,8 @@
       T.push({ id: 'quiz', kind: 'quiz', n: 20, label: 'Cumulative review quiz', note: '20 questions on everything so far. Tricky cards come up more often.', get: () => (before.length ? [...before, ...learning()] : TABLE.map((e) => e.id)) });
     } else {
       const FINAL = [
-        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 1 and 2', note: '25 questions.', get: () => secIds(0, 2) }],
-        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 3 to 5', note: '25 questions.', get: () => secIds(2, 5) }],
+        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 1 to 3', note: '25 questions.', get: () => secIds(0, 3) }],
+        () => [{ id: 'quiz', kind: 'quiz', n: 25, label: 'Review: sections 4 to 6', note: '25 questions.', get: () => secIds(3, 6) }],
         () => [
           { id: 'cards', kind: 'cards', label: 'Study your weak spots', note: 'Cards you are still learning.', get: () => weakIds().slice(0, 20) },
           { id: 'quiz', kind: 'quiz', n: 20, label: 'Weak-spot quiz', note: '20 questions on the cards that gave you trouble.', get: weakIds },
@@ -785,7 +786,7 @@
     const headline = today < 1 ? `Starts ${fmtDate(days[0].date, true)}` : today > total ? 'Plan finished. Keep reviewing.' : `Day ${today} of ${total}`;
     main.append(h('section', { class: 'panel' },
       h('h2', {}, headline),
-      h('p', { class: 'when' }, `${fmtDate(days[0].date)} to ${fmtDate(days[total - 1].date)}. ${TABLE.length} parts, five sections, a checkpoint after each one.`),
+      h('p', { class: 'when' }, `${fmtDate(days[0].date)} to ${fmtDate(days[total - 1].date)}. ${TABLE.length} parts, ${SECTIONS.length} sections, a checkpoint after each one.`),
       h('div', { class: 'stats' },
         h('div', { class: 'stat' }, h('span', { class: 'big-num' }, `${doneDays}/${total}`), h('span', {}, 'days done')),
         h('div', { class: 'stat' }, h('span', { class: 'big-num' }, `${knownCount()}/${TABLE.length}`), h('span', {}, 'parts known')),
